@@ -208,3 +208,12 @@ Remove contact:
 
 .. |khard.conf| replace:: :manpage:`khard.conf`
 .. _khard.conf: man/khard.conf.html
+
+
+command line usage 2
+====================
+
+.. argparse::
+  :module: khard.cli
+  :func: _sphinxarg_helper
+  :prog: khard

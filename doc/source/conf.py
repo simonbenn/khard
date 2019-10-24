@@ -53,6 +53,7 @@ extensions = [
     'sphinx.ext.autosectionlabel',
     'sphinx.ext.todo',
     'sphinx_autodoc_typehints',  # https://pypi.org/project/sphinx-autodoc-typehints/
+    'sphinxarg.ext',
 ]
 
 autoapi_type = 'python'
@@ -136,6 +137,8 @@ htmlhelp_basename = 'kharddoc'
 man_pages = [
     ('man/khard', 'khard', 'Console address book manager', '', 1),
     ('man/khard.conf', 'khard.conf', 'configuration file for khard', '', 5),
+    ('man/khard_new', 'khard_foo', 'foo for khard', '', 1),
+    ('man/khard_new2', 'khard_bar', 'foo for khard', '', 1),
 ]
 
 

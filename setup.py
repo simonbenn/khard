@@ -39,6 +39,7 @@ setup(
     ],
     extras_require={'doc': [
         'sphinx',
+        'sphinx-argparse',
         'sphinx-autoapi',
         'sphinx-autodoc-typehints'
     ]},

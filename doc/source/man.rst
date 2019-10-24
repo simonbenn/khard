@@ -8,3 +8,4 @@ The following man pages are available for khard:
 
    khard(1) <man/khard>
    khard.conf(1) <man/khard.conf>
+   new <man/khard_new.rst>
