@@ -1,5 +1,5 @@
-foo
-===
+foo with man option
+===================
 
 .. argparse::
   :module: khard.cli
