@@ -10,3 +10,4 @@ doc/source/examples/template.yaml
 __pycache__
 khard.egg-info
 result
+venv/
