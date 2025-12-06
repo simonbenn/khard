@@ -7,7 +7,8 @@ import logging
 import os
 import re
 import shlex
-from typing import Iterable, Dict, List, Optional, Union
+from typing import Iterable, Optional, Union
+from glob import iglob
 
 import configobj
 try:
@@ -17,8 +18,8 @@ except ImportError:
     import validate
 
 from .actions import Actions
-from .address_book import AddressBookCollection, AddressBookNameError, \
-    VdirAddressBook
+from .address_book import AddressBookCollection, VdirAddressBook
+from .exceptions import AddressBookNameError, ConfigError
 from .query import Query
 
 
@@ -26,14 +27,10 @@ logger = logging.getLogger(__name__)
 # This is the type of the config file parameter accepted by the configobj
 # library:
 # https://configobj.readthedocs.io/en/latest/configobj.html#reading-a-config-file
-ConfigFile = Union[str, List[str], io.StringIO]
+ConfigFile = Union[str, list[str], io.StringIO]
 
 
-class ConfigError(Exception):
-    """Errors during config file parsing"""
-
-
-def validate_command(value: List[str]) -> List[str]:
+def validate_command(value: list[str]) -> list[str]:
     """Special validator to check shell commands
 
     The input must either be a list of strings or a string that shlex.split can
@@ -68,7 +65,7 @@ def validate_action(value: str) -> str:
     return validate.is_option(value, *Actions.get_actions())
 
 
-def validate_private_objects(value: List[str]) -> List[str]:
+def validate_private_objects(value: list[str]) -> list[str]:
     """Check that the private objects are reasonable
 
     :param value: the config value to check
@@ -98,7 +95,9 @@ class Config:
         self.abooks: AddressBookCollection
         locale.setlocale(locale.LC_ALL, '')
         config = self._load_config_file(config_file)
-        self.config = self._validate(config)
+        config = self._validate(config)
+        config["addressbooks"] = self._unfold_discover_books(config["addressbooks"])
+        self.config = config
         self._set_attributes()
 
     @classmethod
@@ -140,6 +139,53 @@ class Config:
         if result:
             raise ConfigError
         return config
+
+    @classmethod
+    def _unfold_discover_books(cls, addressbooks: configobj.Section) -> configobj.Section:
+        """Expand globs in path of addressbooks of type "discover"
+
+        This expands all addressbooks of type "discover" into (potentially)
+        multiple addressbooks of type "vdir". The names are automatically generated
+        based on the directory name.
+
+        :param config: the configuration to be changed
+        :returns: the changed configuration with no "discover" addressbooks
+        """
+        for section_name, book in addressbooks.copy().items():
+            if book["type"] != "discover":
+                continue
+            hits = iglob(os.path.expanduser(book["path"]), recursive=True)
+            dirs = cls._find_leaf_dirs(hits)
+            for bookpath in dirs:
+                bookname = os.path.basename(bookpath)
+                # Make sure our name is unique
+                counter = 0
+                while bookname in addressbooks:
+                    counter += 1
+                    if bookname + f"-{counter}" in addressbooks:
+                        continue
+                    bookname += f"-{counter}"
+                    break
+                addressbooks[bookname] = {
+                    "type": "vdir",
+                    "path": bookpath,
+                }
+            addressbooks.pop(section_name)
+        return addressbooks
+
+    @staticmethod
+    def _find_leaf_dirs(hits: Iterable[str]) -> set[str]:
+        """Find leaf directories in a tree of hits when using glob.iglob
+
+        The hits are neither guaranteed to be unique nor leaf directories, both
+        of which are enforced by this function.
+
+        :param hits: the hits of a glob as returned by glob.iglob
+        :returns: a set of path strings
+        """
+        dirs = {os.path.normpath(hit) for hit in hits if os.path.isdir(hit)}
+        parents = {os.path.normpath(os.path.join(dir, os.pardir)) for dir in dirs}
+        return dirs - parents
 
     def _set_attributes(self) -> None:
         """Set the attributes from the internal config instance on self."""
@@ -188,7 +234,7 @@ class Config:
         except OSError as err:
             raise ConfigError(str(err))
 
-    def get_address_books(self, names: Iterable[str], queries: Dict[str, Query]
+    def get_address_books(self, names: Iterable[str], queries: dict[str, Query]
                           ) -> AddressBookCollection:
         """Load all address books with the given names.
 
@@ -212,7 +258,7 @@ class Config:
             abook.load(queries[abook.name], self.search_in_source_files)
         return collection
 
-    def merge(self, other: Union[configobj.ConfigObj, Dict]) -> None:
+    def merge(self, other: Union[configobj.ConfigObj, dict]) -> None:
         """Merge the config with some other dict or ConfigObj
 
         :param other: the other dict or ConfigObj to merge into self
